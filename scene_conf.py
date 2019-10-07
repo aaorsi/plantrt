@@ -35,7 +35,7 @@ def default_scene_elements(scene_extent):
     # Bounding boxes go here
 
 
-    ntrees = 2
+    ntrees = 1
     nrows  = 1
     
     ax_al  = 0 # canopy aligned along axis ax_al

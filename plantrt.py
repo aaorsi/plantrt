@@ -35,7 +35,7 @@ class RayBundle:
 
 
 
-def next_interaction(p,scene,nbb, tol = 1e-6):
+def next_interaction(p,scene,nbb, tol = 1e-6,skip_id = -1):
     # find next surface. Loop around nbb bounding boxes and nbs boundaries
     r = []
     ids = []
@@ -43,7 +43,7 @@ def next_interaction(p,scene,nbb, tol = 1e-6):
     for ibb in range(nbb):
         pp = geometry.do_raybox(p, scene.bbox.bounds[ibb])
         logging.debug('%s, pp=%g'%(scene.bbox.name[ibb], pp))
-        if pp > tol:
+        if pp > tol and ibb != skip_id:
             p_int.append([pp])
             ids.append(ibb)
             
@@ -52,17 +52,14 @@ def next_interaction(p,scene,nbb, tol = 1e-6):
         logging.critical(f'{p.medium}, Position {p.pos}, Direction {p.dir}')
         import pdb
         pdb.set_trace()
-
+    
     pmin = np.argmin(p_int)
+    pval = p_int[pmin]
     idcol = ids[pmin]
 #    idd = ids[idcol]
     p.pos = p.pos + p_int[pmin]*p.dir
-
-    for x in range(3):
-        if p.pos[x] < tol:
-            p.pos[x] = 0.0
-
-    p.medium = scene.bbox.name[idcol]
+    
+    #p.medium = scene.bbox.name[idcol]
     return p, idcol
 
 def run(arg, verbose = False):
@@ -115,12 +112,13 @@ def run(arg, verbose = False):
         p = RayBundle()
         p.photon[0].pos =  np.array(observer['center'])
         p.photon[0].dir = geometry.dir_vector(th, ph)
+        p.photon[0].medium = ''
         logging.info(f'photon initial direction {p.photon[0].dir} and position {p.photon[0].pos}')
 
         pos_history.append(p.photon[0].pos)
         # bouncing photons
         ik = 0
-        
+        nnp = 0 
         while ik < arg['nscat']:
             for il in range(ipl):
                 for x in range(3):
@@ -129,17 +127,24 @@ def run(arg, verbose = False):
                     if p.photon[il].pos[x] > scene_extent[x]:
                         p.photon[il].pos[x] = scene_extent[x]
 
+#                if p.photon[il].medium == scene.bbox.name[idd] and scene.bbox.name[idd] != 'Boundaries':
+#                    skip = True
+#                else:
+#                    skip = False
+                
                 p.photon[il], idd = next_interaction(p.photon[il], scene, nel)
                 normal = geometry.get_normal_aabb(p.photon[il],scene.bbox.bounds[idd])
                 old_dir = p.photon[il].dir
                 p.photon[il].dir = geometry.specular_reflection(old_dir, normal)
+                p.photon[il].medium = scene.bbox.name[idd]
 
                 # if not a boundary then a new photon might be created
-                if p.photon[il].medium != 'Boundaries' :
-                    nprog = len(np.unique(p.prog))
+                if p.photon[il].medium != 'Boundaries':
+                    nprog = len(np.unique(p.prog))-1
                     if nprog < nplevels:
                         p.add_photon(il,pos=p.photon[il].pos, direction=old_dir)
- 
+                        skip_id = idd
+                
                 logging.debug(f'[{ik}], {p.photon[il].medium}, normal: {normal}, dir: {p.photon[il].dir} pos:{p.photon[il].pos}')
                 ppos = [p.photon[x].pos for x in range(len(p.prog))]
                 pos_history.append(ppos)
