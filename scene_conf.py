@@ -40,7 +40,7 @@ def default_scene_elements(scene_extent):
     
     ax_al  = 0 # canopy aligned along axis ax_al
 
-    cwidth = scene_extent[ax_al]/(1.5*ntrees)
+    cwidth = scene_extent[ax_al]/(3.5*ntrees)
     twidth = scene_extent[ax_al]/(10.0*ntrees)
 
     gapx = scene_extent[ax_al] - cwidth*ntrees

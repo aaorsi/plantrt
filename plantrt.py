@@ -119,6 +119,7 @@ def run(arg, verbose = False):
         # bouncing photons
         ik = 0
         nnp = 0 
+        skip_ids = [-1]
         while ik < arg['nscat']:
             for il in range(ipl):
                 for x in range(3):
@@ -127,23 +128,22 @@ def run(arg, verbose = False):
                     if p.photon[il].pos[x] > scene_extent[x]:
                         p.photon[il].pos[x] = scene_extent[x]
 
-#                if p.photon[il].medium == scene.bbox.name[idd] and scene.bbox.name[idd] != 'Boundaries':
-#                    skip = True
-#                else:
-#                    skip = False
-                
-                p.photon[il], idd = next_interaction(p.photon[il], scene, nel)
+                p.photon[il], idd = next_interaction(p.photon[il], scene, nel,skip_id = skip_ids[il])
+                # if a scene element was skipped, don't do that again
+                if skip_ids[il] != -1:
+                    skip_ids[il] = -1
+
                 normal = geometry.get_normal_aabb(p.photon[il],scene.bbox.bounds[idd])
                 old_dir = p.photon[il].dir
                 p.photon[il].dir = geometry.specular_reflection(old_dir, normal)
                 p.photon[il].medium = scene.bbox.name[idd]
-
+                
                 # if not a boundary then a new photon might be created
                 if p.photon[il].medium != 'Boundaries':
                     nprog = len(np.unique(p.prog))-1
                     if nprog < nplevels:
                         p.add_photon(il,pos=p.photon[il].pos, direction=old_dir)
-                        skip_id = idd
+                        skip_ids.append(idd)
                 
                 logging.debug(f'[{ik}], {p.photon[il].medium}, normal: {normal}, dir: {p.photon[il].dir} pos:{p.photon[il].pos}')
                 ppos = [p.photon[x].pos for x in range(len(p.prog))]
