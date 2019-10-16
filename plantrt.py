@@ -4,7 +4,7 @@ import geometry
 import logging
 
 class Photon:
-    def __init__(self,pos=np.zeros(3),direction=np.zeros(3), medium = ''):
+    def __init__(self,pos=np.zeros(3),direction=np.zeros(3), medium = 0):
         # Upon initialization, 3D positions and direction must be defined
         self.pos = pos
         self.dir = direction
@@ -40,10 +40,12 @@ def next_interaction(p,scene,nbb, tol = 1e-6,skip_id = -1):
     r = []
     ids = []
     p_int = []
+    norep = p.medium if p.medium > 0 else -1
+
     for ibb in range(nbb):
         pp = geometry.do_raybox(p, scene.bbox.bounds[ibb])
         logging.debug('%s, pp=%g'%(scene.bbox.name[ibb], pp))
-        if pp > tol and ibb != skip_id:
+        if pp > tol and ibb != skip_id and ibb != norep:
             p_int.append([pp])
             ids.append(ibb)
             
@@ -112,7 +114,7 @@ def run(arg, verbose = False):
         p = RayBundle()
         p.photon[0].pos =  np.array(observer['center'])
         p.photon[0].dir = geometry.dir_vector(th, ph)
-        p.photon[0].medium = ''
+        p.photon[0].medium = 0 # within the boundaries
         logging.info(f'photon initial direction {p.photon[0].dir} and position {p.photon[0].pos}')
 
         pos_history.append(p.photon[0].pos)
@@ -136,14 +138,17 @@ def run(arg, verbose = False):
                 normal = geometry.get_normal_aabb(p.photon[il],scene.bbox.bounds[idd])
                 old_dir = p.photon[il].dir
                 p.photon[il].dir = geometry.specular_reflection(old_dir, normal)
-                p.photon[il].medium = scene.bbox.name[idd]
+                p.photon[il].medium = idd
                 
                 # if not a boundary then a new photon might be created
-                if p.photon[il].medium != 'Boundaries':
-                    nprog = len(np.unique(p.prog))-1
+                if il == 0 and idd > 0:
+                    nprog = len(p.prog)-1
                     if nprog < nplevels:
                         p.add_photon(il,pos=p.photon[il].pos, direction=old_dir)
                         skip_ids.append(idd)
+                        if idd == 0:
+                            print ('It seems like the photon is being created at a boundary?')
+                            import pdb ; pdb.set_trace()
                 
                 logging.debug(f'[{ik}], {p.photon[il].medium}, normal: {normal}, dir: {p.photon[il].dir} pos:{p.photon[il].pos}')
                 ppos = [p.photon[x].pos for x in range(len(p.prog))]
@@ -154,8 +159,7 @@ def run(arg, verbose = False):
     
     nphotons = ipl
 
-    return nphotons, pos_history, scene
-
+    return nphotons, pos_history, p
 
 
 
