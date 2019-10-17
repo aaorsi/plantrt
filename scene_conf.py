@@ -1,4 +1,5 @@
 # Scene elements and their properties are defined here
+# comment
 
 import numpy as np
 
