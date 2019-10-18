@@ -73,3 +73,28 @@ def default_scene_elements(scene_extent):
 
     return bboxes
 
+
+def lad_0():
+    return 0, 0
+
+
+def kiwi_tbar(bboxes, ibb, nleaves = 100, lad = lad_0):
+    # Constructs a T-bar kiwifruit structure within bounding box ibb
+
+
+    cane_sep = 40.0 # cane separation
+    bar_height = 85.0 # height of structure
+
+    bb_sizex = bboxes['bounds'][ibb][1,0] - bboxes['bounds'][ibb][0,0]
+    bb_sizey = bboxes['bounds'][ibb][1,1] - bboxes['bounds'][ibb][0,1]
+    
+    cane_length0 = bb_sizey
+    ncanes       = int(bb_sizex/cane_sep)
+    coff         = bb_sizex - cane_sep*ncanes 
+    nshoots_avg  = 5
+    shoot_size   = cane_sep
+
+# TODO: generate kiwifruit leaves
+
+
+
