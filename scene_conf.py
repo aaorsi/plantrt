@@ -49,7 +49,7 @@ def default_scene_elements(scene_extent):
 
     cgaps = gapx/ntrees 
     
-    ibb = 0
+    ibb = 1
     for i in range(ntrees):
         for j in range(nrows):
             # canopy
@@ -108,7 +108,9 @@ def kiwi_tbar(bboxes, ibb, nleaves = 100, lad = lad_0):
     leaf['center'] = []
     leaf['radius'] = []
     leaf['normal'] = []
-    
+   
+#    import pdb ; pdb.set_trace()
+
     kl = 0 # leaf counter
     for ic in range(ncanes):
         pos_cane = coff/2. + bboxes['bounds'][ibb][0][0] + ic*cane_sep # + np.random.normal(0.0,5.0)
