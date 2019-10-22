@@ -114,36 +114,42 @@ def kiwi_tbar(bboxes, ibb, nleaves = 100, lad = lad_0):
     kl = 0 # leaf counter
     for ic in range(ncanes):
         pos_cane = coff/2. + bboxes['bounds'][ibb][0][0] + ic*cane_sep # + np.random.normal(0.0,5.0)
-        
-        for ix in range(2):
+        print (f'cane position x {pos_cane}')
         # canes have different shoots in both sides wrt the main lead
-            nshoots = int(nshoots_avg)# + np.random.normal(0.0,3))
-            
-            for ish in range(nshoots):
-                sign = 1 if np.random.random() < 0.5 else -1
-                spos = np.random.uniform(0,cane_length0/2.)
-                ssize = shoot_size # + np.random.normal(0.0, shoot_size/2.)
-                leaves_shoot_half = int(5)# + np.random.normal(0.0, 5))
-                if leaves_shoot_half < 1:
-                    leaves_shoot_half = 1
+        nshoots = int(nshoots_avg)# + np.random.normal(0.0,3))
+        for ish in range(nshoots):
+            sign = 1 if np.random.random() < 0.5 else -1
+            print (f'sign {sign}')
+            spos = np.random.uniform(0,cane_length0)
+            print (f'shoot position y {spos}')
+            ssize = shoot_size # + np.random.normal(0.0, shoot_size/2.)
+            print (f'shoot size x {ssize}')
+            leaves_shoot_half = int(10)# + np.random.normal(0.0, 5))
+            if leaves_shoot_half < 1:
+                leaves_shoot_half = 1
 
-                lsep = int(ssize/leaves_shoot_half)
-                loff = ssize - lsep*leaves_shoot_half
+            lsep = int(ssize/leaves_shoot_half)
+            loff = ssize - lsep*leaves_shoot_half
 
-                for il in range(leaves_shoot_half):
-                    leaf_rad = 2.0 # + np.random.normal(0.0,2.0)
-                    lpos = loff/2. + lsep*il
+            for il in range(leaves_shoot_half):
+                leaf_rad = 2.0  + np.random.uniform(-.5,.5)
+                lpos = loff/2. + lsep*il
 
-                    leaf['center'].append([pos_cane + lpos, lead_pos + ssize*sign, bar_height])
-                    leaf['radius'].append(leaf_rad)
-                    leaf['normal'].append([lad_0(), 2*np.pi*np.random.uniform()])
+                leaf['center'].append([pos_cane + lpos*sign, 
+                    bboxes['bounds'][ibb][0][1] + spos - leaf_rad, bar_height])
+                leaf['radius'].append(leaf_rad)
+                leaf['normal'].append([lad_0(), 2*np.pi*np.random.uniform()])
 
-                    leaf['center'].append([pos_cane - lpos, lead_pos + ssize*sign, bar_height])
-                    leaf['radius'].append(leaf_rad)
-                    leaf['normal'].append([lad_0(), 2*np.pi*np.random.uniform()])
-                    
-                    kl += 2
-                    
+                leaf['center'].append([pos_cane + lpos*sign, 
+                    bboxes['bounds'][ibb][0][1] + spos + leaf_rad, bar_height])
+                leaf['radius'].append(leaf_rad)
+                leaf['normal'].append([lad_0(), 2*np.pi*np.random.uniform()])
+
+#                    print (f'leaf data {leaf}')
+
+                kl += 2
+                
+#                import pdb ; pdb.set_trace()
 
     print (f'Number of leaves {kl}')
     return leaf
