@@ -35,7 +35,7 @@ class RayBundle:
 
 
 
-def next_interaction(p,scene,nbb, tol = 1e-6,skip_id = -1):
+def next_interaction_bbox(p,scene,nbb, tol = 1e-6,skip_id = -1):
     # find next surface. Loop around nbb bounding boxes and nbs boundaries
     r = []
     ids = []
@@ -60,9 +60,46 @@ def next_interaction(p,scene,nbb, tol = 1e-6,skip_id = -1):
     idcol = ids[pmin]
 #    idd = ids[idcol]
     p.pos = p.pos + p_int[pmin]*p.dir
-    
-    #p.medium = scene.bbox.name[idcol]
     return p, idcol
+
+def next_interaction_canopy(p,scene,ibb, tol = 1e-6,skip_id = -1):
+    # find next surface. Loop around nbb bounding boxes and nbs boundaries
+    r = []
+    ids = []
+    p_int = []
+    norep = p.medium if p.medium > 0 else -1
+    
+    leaf = scene.bbox.leaf[ibb]
+    nleaves = len(leaf['center'])
+
+
+    for il in range(nleaves):
+        
+        pp = geometry.do_raydisk(leaf['normal'][il], leaf['center'][il], 
+                leaf['radius'][il], p.dir, p.pos)
+
+        if pp > tol and il != skip_id and il != norep:
+            p_int.append([pp])
+            ids.append(ibb)
+            
+    if p_int == []: # no interaction with canopy
+        return p, -1
+#        logging.critical('Found no intersection. Check')
+#        logging.critical(f'{p.medium}, Position {p.pos}, Direction {p.dir}')
+#        import pdb
+#        pdb.set_trace()
+    else:   
+        pmin = np.argmin(p_int)
+        pval = p_int[pmin]
+        idcol = ids[pmin]
+    #    idd = ids[idcol]
+        p.pos = p.pos + p_int[pmin]*p.dir
+        
+        #p.medium = scene.bbox.name[idcol]
+        return p, idcol
+
+
+
 
 def run(arg, verbose = False):
   
@@ -85,11 +122,12 @@ def run(arg, verbose = False):
     
     # (0,0,0) is placed at one of the edges by default
     scene_extent = arg['scene_extent'] 
-    elements = scene_conf.default_scene_elements(scene_extent)
+    elements, junk = scene_conf.default_scene_elements(scene_extent)
     scene = scene_conf.Scene()
     scene.bbox.name     = elements['name']
     scene.bbox.bounds   = elements['bounds'] 
     scene.bbox.type     = elements['type']
+    scene.bbox.leaf     = elements['canopy']
 
     # direct sunlight 
     direct_sun =  geometry.dir_vector(theta_sun, phi_sun)
@@ -122,6 +160,8 @@ def run(arg, verbose = False):
         ik = 0
         nnp = 0 
         skip_ids = [-1]
+        idd = 0 # first medium is scene
+        idl = -1 # no leaf interaction at beginning
         while ik < arg['nscat']:
             for il in range(ipl):
                 for x in range(3):
@@ -129,13 +169,21 @@ def run(arg, verbose = False):
                         p.photon[il].pos[x] = 0
                     if p.photon[il].pos[x] > scene_extent[x]:
                         p.photon[il].pos[x] = scene_extent[x]
-
-                p.photon[il], idd = next_interaction(p.photon[il], scene, nel,skip_id = skip_ids[il])
-                # if a scene element was skipped, don't do that again
+                
+                if scene.bbox.leaf[idd] != []: # if bbox contains elements
+                    p.photon[il], idl = next_interaction_canopy(p.photon[il], 
+                                        scene, idd, skip_id = skip_ids[il])
+                    if idl != -1:
+                        normal = scene.bbox.leaf[idd]['normal'][idl]
+                # find next bbox
+                if idl == -1:
+                    p.photon[il], idd = next_interaction_bbox(p.photon[il], scene, nel,skip_id = skip_ids[il])
+                    normal = geometry.get_normal_aabb(p.photon[il],scene.bbox.bounds[idd])
+                
+                # if a bbox was skipped, don't do that again
                 if skip_ids[il] != -1:
                     skip_ids[il] = -1
 
-                normal = geometry.get_normal_aabb(p.photon[il],scene.bbox.bounds[idd])
                 old_dir = p.photon[il].dir
                 p.photon[il].dir = geometry.specular_reflection(old_dir, normal)
                 p.photon[il].medium = idd
@@ -145,7 +193,7 @@ def run(arg, verbose = False):
                     nprog = len(p.prog)-1
                     if nprog < nplevels:
                         p.add_photon(il,pos=p.photon[il].pos, direction=old_dir)
-                        skip_ids.append(idd)
+#                        skip_ids.append(idd)
                         if idd == 0:
                             print ('It seems like the photon is being created at a boundary?')
                             import pdb ; pdb.set_trace()

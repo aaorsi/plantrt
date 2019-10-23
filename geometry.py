@@ -73,7 +73,27 @@ def get_rayplaneintersect(planeNormal, planePoint, rayDirection, rayPoint, epsil
         w = rayPoint - planePoint
         si = -planeNormal.dot(w) / ndotu
         Psi = w + si * rayDirection + planePoint
-        return Psi
+        t = np.dot(planePoint - rayPoint, planeNormal)/ndotu
+        return [[t],[Psi]]
+
+def do_raydisk(normal, centre, radius, raydir, raypoint, epsilon=1e-6):
+    # Get intersection between a disk (normal, centre, radius) and a ray (direction, position)
+    
+    tpsi = get_rayplaneintersect(normal, centre, raydir, raypoint)
+    ### TODO: Fix this mess with the return from get_rayplaneintersect
+
+    t = tpsi[0][0]
+    psi = tpsi[1][0]
+    dd = np.linalg.norm(psi - raypoint)
+
+    if dd <= radius**2:
+        return t
+    else:
+        return -1
+
+
+
+
 
 
 def do_raybox(r, bounds, tol = 1e-4):
