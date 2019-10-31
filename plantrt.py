@@ -1,3 +1,4 @@
+
 import numpy as np
 import scene_conf
 import geometry
@@ -45,7 +46,8 @@ def next_interaction_bbox(p,scene,nbb, tol = 1e-6,skip_id = -1):
     for ibb in range(nbb):
         pp = geometry.do_raybox(p, scene.bbox.bounds[ibb])
         logging.debug('%s, pp=%g'%(scene.bbox.name[ibb], pp))
-        if pp > tol and ibb != skip_id and ibb != norep:
+        #if pp > tol and ibb != skip_id and ibb != norep:
+        if ibb != skip_id and ibb != norep:
             p_int.append([pp])
             ids.append(ibb)
             
@@ -82,6 +84,7 @@ def next_interaction_canopy(p,scene,ibb, tol = 1e-6,skip_id = -1):
             p_int.append([pp])
             ids.append(ibb)
             
+    
     if p_int == []: # no interaction with canopy
         return p, -1
 #        logging.critical('Found no intersection. Check')
@@ -172,7 +175,7 @@ def run(arg, verbose = False):
                 
                 if scene.bbox.leaf[idd] != []: # if bbox contains elements
                     p.photon[il], idl = next_interaction_canopy(p.photon[il], 
-                                        scene, idd, skip_id = skip_ids[il])
+                                        scene, idd, skip_id = skip_ids[idd])
                     if idl != -1:
                         normal = scene.bbox.leaf[idd]['normal'][idl]
                 # find next bbox
@@ -193,7 +196,7 @@ def run(arg, verbose = False):
                     nprog = len(p.prog)-1
                     if nprog < nplevels:
                         p.add_photon(il,pos=p.photon[il].pos, direction=old_dir)
-#                        skip_ids.append(idd)
+                        skip_ids.append(idd)
                         if idd == 0:
                             print ('It seems like the photon is being created at a boundary?')
                             import pdb ; pdb.set_trace()

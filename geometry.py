@@ -81,15 +81,17 @@ def do_raydisk(normal, centre, radius, raydir, raypoint, epsilon=1e-6):
     
     tpsi = get_rayplaneintersect(normal, centre, raydir, raypoint)
     ### TODO: Fix this mess with the return from get_rayplaneintersect
-
-    t = tpsi[0][0]
-    psi = tpsi[1][0]
-    dd = np.linalg.norm(psi - raypoint)
-
-    if dd <= radius**2:
-        return t
-    else:
+    if tpsi == -1:
         return -1
+    else:
+        t = tpsi[0][0]
+        psi = tpsi[1][0]
+        dd = np.linalg.norm(psi - raypoint)
+
+        if dd <= radius**2:
+            return t
+        else:
+            return -1
 
 
 
