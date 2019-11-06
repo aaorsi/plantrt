@@ -1,4 +1,3 @@
-
 import numpy as np
 import scene_conf
 import geometry
@@ -73,7 +72,6 @@ def next_interaction_canopy(p,scene,ibb, tol = 1e-6,skip_id = -1):
     
     leaf = scene.bbox.leaf[ibb]
     nleaves = len(leaf['center'])
-
 
     for il in range(nleaves):
         
@@ -167,20 +165,33 @@ def run(arg, verbose = False):
         idl = -1 # no leaf interaction at beginning
         while ik < arg['nscat']:
             for il in range(ipl):
+                # fix fp-errors to make sure photon is within scene
                 for x in range(3):
                     if p.photon[il].pos[x] < 0:
                         p.photon[il].pos[x] = 0
                     if p.photon[il].pos[x] > scene_extent[x]:
                         p.photon[il].pos[x] = scene_extent[x]
-                
+               
+                import pdb ; pdb.set_trace()
+
+                # TODO:
+                # The logic should be:
+                # 1. Compute point of interaction (POI) with scene
+                # 2. Compute closest bbox ibb
+                # 3. Within ibb, compute closest leaf idl
+                # 4. If idl == -1, repeat 2, 3,4  skipping ibb
+                # 5. If idl is still -1, then accept step 1. Else, update POI using idl
+
+
                 if scene.bbox.leaf[idd] != []: # if bbox contains elements
-                    p.photon[il], idl = next_interaction_canopy(p.photon[il], 
+                    p.photon[il], idl = next_interaction_canopy(p.photon[il],
                                         scene, idd, skip_id = skip_ids[idd])
                     if idl != -1:
                         normal = scene.bbox.leaf[idd]['normal'][idl]
                 # find next bbox
+                
                 if idl == -1:
-                    p.photon[il], idd = next_interaction_bbox(p.photon[il], scene, nel,skip_id = skip_ids[il])
+                    p.photon[il], idd = next_interaction_bbox(p.photon[il], scene, nel)
                     normal = geometry.get_normal_aabb(p.photon[il],scene.bbox.bounds[idd])
                 
                 # if a bbox was skipped, don't do that again
@@ -211,14 +222,6 @@ def run(arg, verbose = False):
     nphotons = ipl
 
     return nphotons, pos_history, p
-
-
-
-
-
-
-
-
 
 
 if __name__ == '__main__':
