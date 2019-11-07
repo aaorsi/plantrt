@@ -35,40 +35,36 @@ class RayBundle:
 
 
 
-def next_interaction_bbox(p,scene,nbb, tol = 1e-6,skip_id = -1):
+def next_interaction_bbox(p,scene,nbb, tol = 1e-6,skip_id = [-1]):
     # find next surface. Loop around nbb bounding boxes and nbs boundaries
     r = []
     ids = []
     p_int = []
-    norep = p.medium if p.medium > 0 else -1
+    poi = p.pos
+    #norep = p.medium if p.medium > 0 else -1
 
     for ibb in range(nbb):
         pp = geometry.do_raybox(p, scene.bbox.bounds[ibb])
         logging.debug('%s, pp=%g'%(scene.bbox.name[ibb], pp))
         #if pp > tol and ibb != skip_id and ibb != norep:
-        if ibb != skip_id and ibb != norep:
+        if ibb not in skip_id:
             p_int.append([pp])
             ids.append(ibb)
             
     if p_int == []:
-        logging.critical('Found no intersection. Check')
-        logging.critical(f'{p.medium}, Position {p.pos}, Direction {p.dir}')
-        import pdb
-        pdb.set_trace()
-    
+        return poi, -1
+
     pmin = np.argmin(p_int)
     pval = p_int[pmin]
     idcol = ids[pmin]
-#    idd = ids[idcol]
-    p.pos = p.pos + p_int[pmin]*p.dir
-    return p, idcol
+    poi += p_int[pmin]*p.dir
+    return poi, idcol
 
-def next_interaction_canopy(p,scene,ibb, tol = 1e-6,skip_id = -1):
+def next_interaction_canopy(p,scene,ibb, tol = 1e-6,skip_id = [-1,-1]):
     # find next surface. Loop around nbb bounding boxes and nbs boundaries
     r = []
     ids = []
     p_int = []
-    norep = p.medium if p.medium > 0 else -1
     
     leaf = scene.bbox.leaf[ibb]
     nleaves = len(leaf['center'])
@@ -78,11 +74,11 @@ def next_interaction_canopy(p,scene,ibb, tol = 1e-6,skip_id = -1):
         pp = geometry.do_raydisk(leaf['normal'][il], leaf['center'][il], 
                 leaf['radius'][il], p.dir, p.pos)
 
-        if pp > tol and il != skip_id and il != norep:
+        if pp > tol and ibb != skip_id[0] and il != skip_id[1] :
             p_int.append([pp])
             ids.append(ibb)
             
-    
+    poi = p.pos
     if p_int == []: # no interaction with canopy
         return p, -1
 #        logging.critical('Found no intersection. Check')
@@ -94,10 +90,10 @@ def next_interaction_canopy(p,scene,ibb, tol = 1e-6,skip_id = -1):
         pval = p_int[pmin]
         idcol = ids[pmin]
     #    idd = ids[idcol]
-        p.pos = p.pos + p_int[pmin]*p.dir
+        poi = p.pos + p_int[pmin]*p.dir
         
         #p.medium = scene.bbox.name[idcol]
-        return p, idcol
+        return poi, idcol
 
 
 
@@ -143,9 +139,7 @@ def run(arg, verbose = False):
     
     # number of scene elements
     nel = len(scene.bbox.name) 
-
     pos_history = []
-
     nplevels = arg['nplevels'] # number of levels in photon generation
 
     ipl = 1
@@ -160,9 +154,9 @@ def run(arg, verbose = False):
         # bouncing photons
         ik = 0
         nnp = 0 
-        skip_ids = [-1]
         idd = 0 # first medium is scene
         idl = -1 # no leaf interaction at beginning
+        skip_leaf = [[-1,-1]]
         while ik < arg['nscat']:
             for il in range(ipl):
                 # fix fp-errors to make sure photon is within scene
@@ -182,35 +176,44 @@ def run(arg, verbose = False):
                 # 4. If idl == -1, repeat 2, 3,4  skipping ibb
                 # 5. If idl is still -1, then accept step 1. Else, update POI using idl
 
-
-                if scene.bbox.leaf[idd] != []: # if bbox contains elements
-                    p.photon[il], idl = next_interaction_canopy(p.photon[il],
-                                        scene, idd, skip_id = skip_ids[idd])
-                    if idl != -1:
-                        normal = scene.bbox.leaf[idd]['normal'][idl]
-                # find next bbox
-                
-                if idl == -1:
-                    p.photon[il], idd = next_interaction_bbox(p.photon[il], scene, nel)
-                    normal = geometry.get_normal_aabb(p.photon[il],scene.bbox.bounds[idd])
-                
-                # if a bbox was skipped, don't do that again
-                if skip_ids[il] != -1:
-                    skip_ids[il] = -1
-
+                target = -1
+                skip_list = [0] # by default skips the scene
+                no_int = 0
                 old_dir = p.photon[il].dir
-                p.photon[il].dir = geometry.specular_reflection(old_dir, normal)
-                p.photon[il].medium = idd
                 
-                # if not a boundary then a new photon might be created
-                if il == 0 and idd > 0:
-                    nprog = len(p.prog)-1
-                    if nprog < nplevels:
-                        p.add_photon(il,pos=p.photon[il].pos, direction=old_dir)
-                        skip_ids.append(idd)
-                        if idd == 0:
-                            print ('It seems like the photon is being created at a boundary?')
-                            import pdb ; pdb.set_trace()
+                while target == -1: # Iteratively searching for an interaction
+                #Find closest bbox
+                    poi, idd = next_interaction_bbox(p.photon[il], scene, nel,
+                            skip_id = skip_list)
+                    if idd != -1:
+                    # 3 Closest leaf within idd
+                        poi, idl = next_interaction_canopy(p.photon[il],
+                                        scene, idd, skip_id = skip_leaf[il])
+                        if idl != -1:
+                        # Leaf interaction found
+                            normal = scene.bbox.leaf[idd]['normal'][idl]
+                            p.photon[il].pos = poi
+                            p.photon[il].dir = geometry.specular_reflection(old_dir, normal)
+                            if il == 0:
+                                nprog = len(p.prog)-1
+                                if nprog < nplevels:
+                                    # New photon created with same position and old direction
+                                    p.add_photon(il,pos=p.photon[il].pos, direction=old_dir)
+                                    skip_leaf.append([idd,idl]) # skip this leaf in the next iteration
+
+                            target = 1
+
+                        else:
+                        # 4 If no leaf found, repeat skipping bbox idd             
+                            skip_list.append(idd)
+                            if len(skip_list) == nel:
+                            # 5 If no leaf found on any bbox, then bounce against the scene                 
+                                pp = geometry.do_raybox(p[il], scene.bbox.bounds[0])
+                                p.photon[il].pos += pp*p.photon[il].dir
+                                normal = geometry.get_normal_aabb(p.photon[il],scene.bbox.bounds[0])
+                                p.photon[il].dir = geometry.specular_reflection(old_dir, normal)
+                                target = 1
+
                 
                 logging.debug(f'[{ik}], {p.photon[il].medium}, normal: {normal}, dir: {p.photon[il].dir} pos:{p.photon[il].pos}')
                 ppos = [p.photon[x].pos for x in range(len(p.prog))]
